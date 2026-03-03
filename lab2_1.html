@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Лабораторная 2 — Пятиугольник, Кубик, Полосатый квадрат</title>
+    <style>
+        body { margin:0; background:#000; font-family:Arial; color:#fff; }
+        canvas { display:block; border:1px solid #333; }
+        .container { display:flex; justify-content:space-around; padding:30px; flex-wrap:wrap; }
+        .item { text-align:center; margin:15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="item">
+        <h3>1. Красный правильный пятиугольник</h3>
+        <canvas id="pentagon" width="420" height="420"></canvas>
+    </div>
+    <div class="item">
+        <h3>2. Жёлтый кубик (3D-имитация, под углом)</h3>
+        <canvas id="cube" width="420" height="420"></canvas>
+    </div>
+    <div class="item">
+        <h3>3. Полосатый квадрат (без поворота)</h3>
+        <canvas id="stripes" width="420" height="420"></canvas>
+    </div>
+</div>
+
+<script>
+// Общий инициализатор WebGL
+function initGL(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const gl = canvas.getContext('webgl');
+    if (!gl) { alert("WebGL не поддерживается"); return null; }
+
+    const vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, `attribute vec2 a_pos; attribute vec4 a_col; varying vec4 v_col; uniform mat4 u_mat; void main(){ gl_Position = u_mat * vec4(a_pos,0,1); v_col = a_col; }`);
+    gl.compileShader(vs);
+
+    const fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, `precision mediump float; varying vec4 v_col; void main(){ gl_FragColor = v_col; }`);
+    gl.compileShader(fs);
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    const posLoc = gl.getAttribLocation(program, "a_pos");
+    const colLoc = gl.getAttribLocation(program, "a_col");
+    const matLoc = gl.getUniformLocation(program, "u_mat");
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.enableVertexAttribArray(colLoc);
+
+    return {gl, posLoc, colLoc, matLoc};
+}
+
+// Матрица поворота + масштаба
+function rotationMatrix(angleDeg, scale = 1) {
+    const rad = angleDeg * Math.PI / 180;
+    const c = Math.cos(rad), s = Math.sin(rad);
+    return new Float32Array([
+        c*scale, -s*scale, 0, 0,
+        s*scale,  c*scale, 0, 0,
+        0,        0,       1, 0,
+        0,        0,       0, 1
+    ]);
+}
+
+// ===============================================
+// 1. Красный правильный пятиугольник
+const pent = initGL("pentagon");
+if (pent) {
+    const {gl, posLoc, colLoc, matLoc} = pent;
+    const r = 0.78;
+    const verts = [], cols = [];
+    for (let i = 0; i < 5; i++) {
+        const a = (i * 72 - 90) * Math.PI / 180;   // плоская вершина сверху
+        verts.push(r * Math.cos(a), r * Math.sin(a));
+        cols.push(1, 0, 0, 1);
+    }
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...verts, ...cols]), gl.STATIC_DRAW);
+
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(colLoc, 4, gl.FLOAT, false, 0, verts.length * 4);
+
+    gl.uniformMatrix4fv(matLoc, false, rotationMatrix(18, 0.96));
+
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 5);
+}
+
+// ===============================================
+// 2. Жёлтый кубик (8 вершин, 3 видимые грани, под углом)
+const cubeGL = initGL("cube");
+if (cubeGL) {
+    const {gl, posLoc, colLoc, matLoc} = cubeGL;
+    const s = 0.38;
+    const ox = 0.22;   // смещение по глубине (изометрия)
+    const oy = 0.22;
+
+    // 8 вершин куба в 2D-проекции
+    const cubeVerts = [
+        // Передняя грань
+        -s, -s,   s, -s,   s,  s,  -s,  s,
+        // Верхняя грань
+        -s+ox, s+oy,   s+ox, s+oy,   s, s,   -s, s,
+        // Правая грань
+        s, -s,   s+ox, -s+oy,   s+ox, s+oy,   s, s
+    ];
+
+    const cubeColors = new Float32Array(48); // 12 вершин × 4
+    for (let i = 0; i < cubeColors.length; i += 4) {
+        cubeColors[i] = 1; cubeColors[i+1] = 0.9; cubeColors[i+2] = 0.1; cubeColors[i+3] = 1; // жёлтый
+    }
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...cubeVerts, ...cubeColors]), gl.STATIC_DRAW);
+
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(colLoc, 4, gl.FLOAT, false, 0, cubeVerts.length*4);
+
+    gl.uniformMatrix4fv(matLoc, false, rotationMatrix(32, 0.92));
+
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // Рисуем 3 видимые грани
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);   // передняя
+    gl.drawArrays(gl.TRIANGLE_FAN, 4, 4);   // верхняя
+    gl.drawArrays(gl.TRIANGLE_FAN, 8, 4);   // правая
+}
+
+// ===============================================
+// 3. Полосатый квадрат (без поворота, cyan + белые полоски одинаковой ширины)
+const stripesGL = initGL("stripes");
+if (stripesGL) {
+    const {gl, posLoc, colLoc, matLoc} = stripesGL;
+
+    // Основной квадрат (cyan)
+    const squareVerts = new Float32Array([
+        -0.75, -0.75, 0.0, 0.8, 1.0, 1.0,
+         0.75, -0.75, 0.0, 0.8, 1.0, 1.0,
+         0.75,  0.75, 0.0, 0.8, 1.0, 1.0,
+        -0.75,  0.75, 0.0, 0.8, 1.0, 1.0
+    ]);
+
+    const sqBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, sqBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, squareVerts, gl.STATIC_DRAW);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 24, 0);
+    gl.vertexAttribPointer(colLoc, 4, gl.FLOAT, false, 24, 8);
+
+    gl.uniformMatrix4fv(matLoc, false, rotationMatrix(0)); // без поворота
+
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+    // Белые вертикальные полоски (одинаковой ширины)
+    const stripWidth = 0.085;
+    for (let x = -0.75; x < 0.75; x += stripWidth * 2) {
+        const stripVerts = new Float32Array([
+            x,         -0.75, 1,1,1,1,
+            x+stripWidth, -0.75, 1,1,1,1,
+            x+stripWidth,  0.75, 1,1,1,1,
+            x,          0.75, 1,1,1,1
+        ]);
+        const stripBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, stripBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, stripVerts, gl.STATIC_DRAW);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 24, 0);
+        gl.vertexAttribPointer(colLoc, 4, gl.FLOAT, false, 24, 8);
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    }
+}
+</script>
+</body>
+</html>
