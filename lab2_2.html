@@ -17,7 +17,7 @@
         
         const gl = canvas.getContext('webgl2');
         
-        // Вершинный шейдер (как в лекции, слайд 7)
+
         const vsSource = `#version 300 es
             in vec3 vertexPosition;
             out vec3 vPosition;
@@ -30,7 +30,6 @@
             }
         `;
 
-        // Фрагментный шейдер (как в лекции, слайд 9 - квадратики)
         const fsSource = `#version 300 es
             precision mediump float;
             
@@ -42,7 +41,7 @@
                 float k = 5.0;
                 
                 if (uMode == 0) {
-                    // Квадратики (как в лекции, слайд 9)
+                    // Квадратики 
                     int sum = int(vPosition.x * k) + int(vPosition.y * k) + int(vPosition.z * k);
                     if ((sum - (sum / 2 * 2)) == 0) {
                         color = vec4(0.8, 0.8, 0.0, 1.0); // желтый
@@ -69,15 +68,11 @@
             }
         `;
 
-        // Компиляция шейдеров
+  
         function compileShader(gl, source, type) {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
-            
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-            }
             return shader;
         }
 
@@ -88,11 +83,6 @@
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
-        
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error('Program link error:', gl.getProgramInfoLog(program));
-        }
-        
         gl.useProgram(program);
 
         // Получаем ссылки на переменные
@@ -101,7 +91,7 @@
         const modelViewMatrixLoc = gl.getUniformLocation(program, 'uModelViewMatrix');
         const modeLoc = gl.getUniformLocation(program, 'uMode');
 
-        // Данные куба (8 вершин)
+        // Данные куба
         const vertices = new Float32Array([
             -0.5, -0.5,  0.5,
              0.5, -0.5,  0.5,
@@ -113,14 +103,14 @@
             -0.5,  0.5, -0.5
         ]);
 
-        // Индексы для 12 треугольников
+
         const indices = new Uint16Array([
-            0, 1, 2,  0, 2, 3,  // front
-            4, 5, 6,  4, 6, 7,  // back
-            0, 4, 7,  0, 7, 3,  // left
-            1, 5, 6,  1, 6, 2,  // right
-            3, 2, 6,  3, 6, 7,  // top
-            0, 1, 5,  0, 5, 4   // bottom
+            0, 1, 2,  0, 2, 3,  
+            4, 5, 6,  4, 6, 7,  
+            0, 4, 7,  0, 7, 3,  
+            1, 5, 6,  1, 6, 2,  
+            3, 2, 6,  3, 6, 7,  
+            0, 1, 5,  0, 5, 4   
         ]);
 
         // Создаем буферы
@@ -132,11 +122,11 @@
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
-        // Настраиваем атрибуты (как в лекции, слайд 43-44)
+        // Настраиваем атрибуты
         gl.enableVertexAttribArray(vertexPositionLoc);
         gl.vertexAttribPointer(vertexPositionLoc, 3, gl.FLOAT, false, 0, 0);
 
-        // Матрицы (как в лекции, слайд 28, 42)
+        // Матрицы
         const projectionMatrix = new Float32Array(16);
         const fieldOfView = 45 * Math.PI / 180;
         const aspect = canvas.width / canvas.height;
@@ -191,7 +181,7 @@
         let angle = 0;
 
         function render() {
-            // Очистка (как в лекции, слайд 42)
+
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
             gl.clearDepth(1.0);
             gl.enable(gl.DEPTH_TEST);
@@ -201,18 +191,12 @@
             // Передаем проекционную матрицу
             gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
 
-            // Рисуем три кубика
             for (let i = 0; i < 3; i++) {
-                // Создаем модельно-видовую матрицу (сдвиг назад и позиция)
                 setModelViewMatrix(positions[i], 0, -7.0, angle + i);
-                
-                // Передаем матрицу
                 gl.uniformMatrix4fv(modelViewMatrixLoc, false, modelViewMatrix);
-                
-                // Передаем режим
+
                 gl.uniform1i(modeLoc, i);
-                
-                // Рисуем (как в лекции, слайд 46-48)
+
                 gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
             }
             
@@ -222,7 +206,6 @@
 
         render();
 
-        // Обновление при изменении размера
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;

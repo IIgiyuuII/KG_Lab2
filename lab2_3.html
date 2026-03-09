@@ -1,51 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Кубик с цветными вершинами - управление с клавиатуры</title>
+    <title>Кубик с цветными вершинами — по лекции</title>
     <style>
-        body { margin: 0; background: #333; font-family: Arial, sans-serif; }
+        body { margin: 0; background: #222; font-family: 'Segoe UI', Arial; color: white; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        .controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 100;
+        .panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(30, 30, 40, 0.9);
+            padding: 20px; border-radius: 10px;
             border: 1px solid #555;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
         }
-        .controls h3 {
-            margin: 0 0 10px 0;
-            color: #ffaa00;
+        .panel h3 { margin: 0 0 15px; color: #ffaa66; }
+        .panel p { margin: 8px 0; font-size: 15px; }
+        .panel kbd {
+            background: #3a3a4a; padding: 3px 8px;
+            border-radius: 5px; border: 1px solid #666;
+            font-family: monospace; font-size: 14px;
         }
-        .controls p {
-            margin: 5px 0;
-        }
-        .controls kbd {
-            background: #444;
-            border-radius: 4px;
-            padding: 2px 6px;
-            border: 1px solid #888;
-        }
+        .panel .values { margin-top: 15px; background: #252530; padding: 10px; border-radius: 6px; }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
     
-    <div class="controls">
-        <h3>Управление кубиком:</h3>
-        <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> - перемещение по X и Y</p>
-        <p><kbd>Q</kbd> <kbd>E</kbd> - перемещение по Z (ближе/дальше)</p>
-        <p><kbd>↑</kbd> <kbd>↓</kbd> - масштабирование (увеличить/уменьшить)</p>
-        <p><kbd>←</kbd> <kbd>→</kbd> - вращение вокруг Y</p>
-        <p><kbd>R</kbd> - сброс всех параметров</p>
-        <hr style="border-color:#555">
-        <p>Позиция: X: <span id="posX">0.00</span> Y: <span id="posY">0.00</span> Z: <span id="posZ">-7.00</span></p>
-        <p>Масштаб: <span id="scale">1.00</span></p>
-        <p>Поворот: <span id="rotate">0.00</span>°</p>
+    <div class="panel">
+        <h3> Управление кубиком</h3>
+        <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> — перемещение по X и Y</p>
+        <p><kbd>Q</kbd> <kbd>E</kbd> — ближе / дальше (Z)</p>
+        <p><kbd>↑</kbd> <kbd>↓</kbd> — увеличить / уменьшить</p>
+        <p><kbd>←</kbd> <kbd>→</kbd> — поворот вокруг Y</p>
+        <p><kbd>R</kbd> — сбросить всё</p>
+        <div class="values">
+            <div>Позиция: X <span id="valX">0.00</span>  Y <span id="valY">0.00</span>  Z <span id="valZ">-7.00</span></div>
+            <div>Масштаб: <span id="valScale">1.00</span></div>
+            <div>Поворот: <span id="valRot">0</span>°</div>
+        </div>
     </div>
 
     <script>
@@ -54,142 +46,139 @@
         canvas.height = window.innerHeight;
         
         const gl = canvas.getContext('webgl2');
-        
-        // Вершинный шейдер
-        const vsSource = `#version 300 es
-            in vec4 aVertexPosition;
-            in vec4 aVertexColor;
+        if (!gl) {
+            alert('WebGL 2.0 не поддерживается');
+            throw new Error('WebGL 2.0 required');
+        }
+
+        const vertexShaderSource = `#version 300 es
+            in vec4 aVertexPosition;    
+            in vec4 aVertexColor;       
             
-            uniform mat4 uProjectionMatrix;
-            uniform mat4 uModelViewMatrix;
+            uniform mat4 uProjectionMatrix;   
+            uniform mat4 uModelViewMatrix;    
             
-            out lowp vec4 vColor;
+            out lowp vec4 vColor;       
             
             void main() {
+                
                 gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-                vColor = aVertexColor;
+                vColor = aVertexColor;    
             }
         `;
 
-        // Фрагментный шейдер
-        const fsSource = `#version 300 es
+      
+        const fragmentShaderSource = `#version 300 es
             precision lowp float;
             
-            in lowp vec4 vColor;
-            out lowp vec4 Color;
+            in lowp vec4 vColor;         
+            out lowp vec4 outColor;      
             
             void main() {
-                Color = vColor;
+                outColor = vColor;       
             }
         `;
 
-        // Компиляция шейдеров
-        function compileShader(gl, source, type) {
+        
+        function createShader(gl, source, type) {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
-            
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-            }
             return shader;
         }
 
-        const vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
-        const fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
-        
+
+        const vertexShader = createShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+        const fragmentShader = createShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
+
         const program = gl.createProgram();
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
-        
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error('Program link error:', gl.getProgramInfoLog(program));
-        }
-        
         gl.useProgram(program);
 
-        // Получаем ссылки на переменные
-        const programInfo = {
-            program: program,
-            attribLocations: {
-                vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
-                vertexColor: gl.getAttribLocation(program, 'aVertexColor'),
-            },
-            uniformLocations: {
-                projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
-                modelViewMatrix: gl.getUniformLocation(program, 'uModelViewMatrix'),
-            }
+        const attribLocations = {
+            vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
+            vertexColor: gl.getAttribLocation(program, 'aVertexColor')
         };
 
-        // Данные куба (8 вершин)
-        const vertices = new Float32Array([
-            -0.5, -0.5,  0.5,  // 0
-             0.5, -0.5,  0.5,  // 1
-             0.5,  0.5,  0.5,  // 2
-            -0.5,  0.5,  0.5,  // 3
-            -0.5, -0.5, -0.5,  // 4
-             0.5, -0.5, -0.5,  // 5
-             0.5,  0.5, -0.5,  // 6
-            -0.5,  0.5, -0.5   // 7
+        const uniformLocations = {
+            projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
+            modelViewMatrix: gl.getUniformLocation(program, 'uModelViewMatrix')
+        };
+        
+        const vertexPositions = new Float32Array([
+            -0.5, -0.5,  0.5,  
+             0.5, -0.5,  0.5,  
+             0.5,  0.5,  0.5,  
+            -0.5,  0.5,  0.5,  
+            
+            -0.5, -0.5, -0.5,  
+             0.5, -0.5, -0.5,  
+             0.5,  0.5, -0.5,  
+            -0.5,  0.5, -0.5   
         ]);
 
-        // Цвета для каждой вершины
-        const colors = new Float32Array([
-            1.0, 0.0, 0.0, 1.0,  // вершина 0 - красный
-            0.0, 1.0, 0.0, 1.0,  // вершина 1 - зеленый
-            0.0, 0.0, 1.0, 1.0,  // вершина 2 - синий
-            1.0, 1.0, 0.0, 1.0,  // вершина 3 - желтый
-            1.0, 0.0, 1.0, 1.0,  // вершина 4 - пурпурный
-            0.0, 1.0, 1.0, 1.0,  // вершина 5 - голубой
-            1.0, 0.5, 0.0, 1.0,  // вершина 6 - оранжевый
-            0.5, 0.0, 1.0, 1.0   // вершина 7 - фиолетовый
+
+        const vertexColors = new Float32Array([
+            1.0, 0.0, 0.0, 1.0,  
+            0.0, 1.0, 0.0, 1.0,  
+            0.0, 0.0, 1.0, 1.0,  
+            1.0, 1.0, 0.0, 1.0,  
+            1.0, 0.0, 1.0, 1.0,  
+            0.0, 1.0, 1.0, 1.0,  
+            1.0, 0.5, 0.0, 1.0,  
+            0.5, 0.0, 1.0, 1.0   
         ]);
 
-        // Индексы для 12 треугольников
+
         const indices = new Uint16Array([
-            0, 1, 2,  0, 2, 3,  // передняя
-            4, 5, 6,  4, 6, 7,  // задняя
-            0, 4, 7,  0, 7, 3,  // левая
-            1, 5, 6,  1, 6, 2,  // правая
-            3, 2, 6,  3, 6, 7,  // верхняя
-            0, 1, 5,  0, 5, 4   // нижняя
+            0, 1, 2,  0, 2, 3,
+            4, 5, 6,  4, 6, 7,
+            0, 4, 7,  0, 7, 3,
+            1, 5, 6,  1, 6, 2,
+            3, 2, 6,  3, 6, 7,
+            0, 1, 5,  0, 5, 4
         ]);
 
-        // Создаем буферы
+
         const positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.STATIC_DRAW);
 
         const colorBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexColors, gl.STATIC_DRAW);
 
         const indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
-        // Матрицы
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.vertexAttribPointer(attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(attribLocations.vertexPosition);
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.vertexAttribPointer(attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(attribLocations.vertexColor);
+
         const projectionMatrix = new Float32Array(16);
         const modelViewMatrix = new Float32Array(16);
 
-        // Параметры трансформации
-        let transform = {
-            posX: 0,
-            posY: 0,
-            posZ: -7,
-            scale: 1,
-            rotateY: 0
-        };
+        let posX = 0.0;
+        let posY = 0.0;
+        let posZ = -7.0; 
+        let scale = 1.0;
+        let rotationY = 0.0;
 
-        // Создаем перспективную матрицу
-        function createProjectionMatrix() {
-            const fieldOfView = 45 * Math.PI / 180;
+        function updateProjectionMatrix() {
+            const fov = 45 * Math.PI / 180;  
             const aspect = canvas.width / canvas.height;
-            const zNear = 0.1;
-            const zFar = 100.0;
+            const near = 0.1;   
+            const far = 100.0;   
             
-            const f = 1.0 / Math.tan(fieldOfView / 2);
+            const f = 1.0 / Math.tan(fov / 2);
             
             projectionMatrix[0] = f / aspect;
             projectionMatrix[1] = 0;
@@ -203,182 +192,128 @@
             
             projectionMatrix[8] = 0;
             projectionMatrix[9] = 0;
-            projectionMatrix[10] = (zFar + zNear) / (zNear - zFar);
+            projectionMatrix[10] = (far + near) / (near - far);
             projectionMatrix[11] = -1;
             
             projectionMatrix[12] = 0;
             projectionMatrix[13] = 0;
-            projectionMatrix[14] = (2 * zFar * zNear) / (zNear - zFar);
+            projectionMatrix[14] = (2 * far * near) / (near - far);
             projectionMatrix[15] = 0;
         }
-        
-        createProjectionMatrix();
 
-        // Функция для создания модельно-видовой матрицы
-        function updateModelViewMatrix() {
-            // Единичная матрица
-            modelViewMatrix[0] = 1; modelViewMatrix[4] = 0; modelViewMatrix[8] = 0; modelViewMatrix[12] = 0;
-            modelViewMatrix[1] = 0; modelViewMatrix[5] = 1; modelViewMatrix[9] = 0; modelViewMatrix[13] = 0;
-            modelViewMatrix[2] = 0; modelViewMatrix[6] = 0; modelViewMatrix[10] = 1; modelViewMatrix[14] = 0;
-            modelViewMatrix[3] = 0; modelViewMatrix[7] = 0; modelViewMatrix[11] = 0; modelViewMatrix[15] = 1;
+        function updateModelViewMatrix() {  
+            const cos = Math.cos(rotationY);
+            const sin = Math.sin(rotationY);
             
-            // 1. Масштабирование
-            const s = transform.scale;
-            const scaleMat = [
-                s, 0, 0, 0,
-                0, s, 0, 0,
-                0, 0, s, 0,
-                0, 0, 0, 1
-            ];
+            modelViewMatrix[0] = scale * cos;
+            modelViewMatrix[1] = 0;
+            modelViewMatrix[2] = -scale * sin;  
+            modelViewMatrix[3] = 0;
             
-            // 2. Вращение вокруг Y
-            const angle = transform.rotateY;
-            const c = Math.cos(angle);
-            const s1 = Math.sin(angle);
-            const rotYMat = [
-                c, 0, s1, 0,
-                0, 1, 0, 0,
-                -s1, 0, c, 0,
-                0, 0, 0, 1
-            ];
+            modelViewMatrix[4] = 0;
+            modelViewMatrix[5] = scale;
+            modelViewMatrix[6] = 0;
+            modelViewMatrix[7] = 0;
             
-            // 3. Перемещение
-            const transMat = [
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                transform.posX, transform.posY, transform.posZ, 1
-            ];
+            modelViewMatrix[8] = scale * sin;
+            modelViewMatrix[9] = 0;
+            modelViewMatrix[10] = scale * cos;
+            modelViewMatrix[11] = 0;
             
-            // Умножаем матрицы: transMat * rotYMat * scaleMat
-            // Сначала scaleMat * rotYMat
-            const temp = new Float32Array(16);
-            for (let i = 0; i < 4; i++) {
-                for (let j = 0; j < 4; j++) {
-                    temp[i*4 + j] = 0;
-                    for (let k = 0; k < 4; k++) {
-                        temp[i*4 + j] += scaleMat[i*4 + k] * rotYMat[k*4 + j];
-                    }
-                }
-            }
-            
-            // Потом результат * transMat
-            for (let i = 0; i < 4; i++) {
-                for (let j = 0; j < 4; j++) {
-                    modelViewMatrix[i*4 + j] = 0;
-                    for (let k = 0; k < 4; k++) {
-                        modelViewMatrix[i*4 + j] += temp[i*4 + k] * transMat[k*4 + j];
-                    }
-                }
-            }
+            modelViewMatrix[12] = posX;
+            modelViewMatrix[13] = posY;
+            modelViewMatrix[14] = posZ;
+            modelViewMatrix[15] = 1;
         }
 
-        // Управление с клавиатуры
-        const step = 0.2;
-        const keys = {};
+        updateProjectionMatrix();
+        updateModelViewMatrix();
+
+        const keyState = {};
 
         window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
+            keyState[e.key] = true;
             
-            // Сброс по R
             if (e.key === 'r' || e.key === 'R') {
-                transform.posX = 0;
-                transform.posY = 0;
-                transform.posZ = -7;
-                transform.scale = 1;
-                transform.rotateY = 0;
+                posX = 0;
+                posY = 0;
+                posZ = -7;
+                scale = 1.0;
+                rotationY = 0;
                 updateDisplay();
             }
         });
 
         window.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
+            keyState[e.key] = false;
         });
 
         function updateDisplay() {
-            document.getElementById('posX').textContent = transform.posX.toFixed(2);
-            document.getElementById('posY').textContent = transform.posY.toFixed(2);
-            document.getElementById('posZ').textContent = transform.posZ.toFixed(2);
-            document.getElementById('scale').textContent = transform.scale.toFixed(2);
-            document.getElementById('rotate').textContent = (transform.rotateY * 180 / Math.PI).toFixed(0);
+            document.getElementById('valX').textContent = posX.toFixed(2);
+            document.getElementById('valY').textContent = posY.toFixed(2);
+            document.getElementById('valZ').textContent = posZ.toFixed(2);
+            document.getElementById('valScale').textContent = scale.toFixed(2);
+            document.getElementById('valRot').textContent = ((rotationY * 180 / Math.PI) % 360).toFixed(0);
         }
 
         function handleInput() {
+            const moveSpeed = 0.1;
+            const rotateSpeed = 0.05;
+            const scaleSpeed = 0.03;
+            
             let changed = false;
             
-            // Перемещение WASD (по X и Y)
-            if (keys['w'] || keys['W']) { transform.posY += step; changed = true; }
-            if (keys['s'] || keys['S']) { transform.posY -= step; changed = true; }
-            if (keys['a'] || keys['A']) { transform.posX -= step; changed = true; }
-            if (keys['d'] || keys['D']) { transform.posX += step; changed = true; }
+            if (keyState['w'] || keyState['W']) { posY += moveSpeed; changed = true; }
+            if (keyState['s'] || keyState['S']) { posY -= moveSpeed; changed = true; }
+            if (keyState['a'] || keyState['A']) { posX -= moveSpeed; changed = true; }
+            if (keyState['d'] || keyState['D']) { posX += moveSpeed; changed = true; }
             
-            // Перемещение по Z (Q - ближе, E - дальше)
-            if (keys['q'] || keys['Q']) { transform.posZ += step; changed = true; }
-            if (keys['e'] || keys['E']) { transform.posZ -= step; changed = true; }
+            if (keyState['q'] || keyState['Q']) { posZ += moveSpeed; changed = true; }
+            if (keyState['e'] || keyState['E']) { posZ -= moveSpeed; changed = true; }
             
-            // Масштабирование (стрелки вверх/вниз)
-            if (keys['ArrowUp']) { transform.scale += 0.1; changed = true; }
-            if (keys['ArrowDown']) { transform.scale -= 0.1; changed = true; }
+            if (keyState['ArrowUp']) { scale += scaleSpeed; changed = true; }
+            if (keyState['ArrowDown']) { scale -= scaleSpeed; changed = true; }
             
-            // Вращение (стрелки влево/вправо)
-            if (keys['ArrowLeft']) { transform.rotateY -= 0.1; changed = true; }
-            if (keys['ArrowRight']) { transform.rotateY += 0.1; changed = true; }
+            if (keyState['ArrowLeft']) { rotationY -= rotateSpeed; changed = true; }
+            if (keyState['ArrowRight']) { rotationY += rotateSpeed; changed = true; }
+            
+            if (scale < 0.2) scale = 0.2;
+            if (scale > 5.0) scale = 5.0;
             
             if (changed) {
-                updateDisplay();
                 updateModelViewMatrix();
+                updateDisplay();
             }
         }
 
-        function render() {
+        function drawScene() {
             handleInput();
             
-            // Очистка
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
             gl.clearDepth(1.0);
             gl.enable(gl.DEPTH_TEST);
             gl.depthFunc(gl.LEQUAL);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // Используем программу
-            gl.useProgram(programInfo.program);
+            // Передаем матрицы в шейдер
+            gl.uniformMatrix4fv(uniformLocations.projectionMatrix, false, projectionMatrix);
+            gl.uniformMatrix4fv(uniformLocations.modelViewMatrix, false, modelViewMatrix);
 
-            // Передаем проекционную матрицу
-            gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-
-            // Передаем модельно-видовую матрицу
-            gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-
-            // Настраиваем атрибут позиций
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
-            // Настраиваем атрибут цветов
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-
-            // Используем индексный буфер
+            // Рисуем куб, используя индексный буфер
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-            // Рисуем куб
             gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
 
-            requestAnimationFrame(render);
+            requestAnimationFrame(drawScene);
         }
 
-        // Инициализация
-        updateModelViewMatrix();
+        drawScene();
         updateDisplay();
-        render();
 
-        // Обновление при изменении размера окна
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             gl.viewport(0, 0, canvas.width, canvas.height);
-            createProjectionMatrix();
+            updateProjectionMatrix(); 
         });
     </script>
 </body>
