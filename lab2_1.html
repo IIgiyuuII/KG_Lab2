@@ -2,187 +2,185 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Лабораторная 2 — WebGL 2.0 (исправлено)</title>
+    <title>Лабораторная 2 — WebGL 2.0 (один канвас)</title>
     <style>
         body { margin:0; background:#111; color:#eee; font-family: 'Segoe UI'; }
-        .container { display:flex; justify-content:center; gap:20px; padding:30px; flex-wrap:wrap; }
+        .container { display:flex; justify-content:center; padding:30px; }
+        canvas { border:1px solid #444; width:1200px; height:400px; display:block; }
         .item { text-align:center; background:#1a1a1a; padding:15px; border-radius:8px; }
-        canvas { border:1px solid #444; width:400px; height:400px; display:block; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="item"><h3>Красный пятиугольник</h3><canvas id="c1" width="400" height="400"></canvas></div>
-    <div class="item"><h3>Жёлтый кубик</h3><canvas id="c2" width="400" height="400"></canvas></div>
-    <div class="item"><h3>Полосатый квадрат</h3><canvas id="c3" width="400" height="400"></canvas></div>
+    <div class="item">
+        <h3>Пятиугольник &nbsp;|&nbsp; Кубик &nbsp;|&nbsp; Полосы</h3>
+        <canvas id="canvas" width="1200" height="400"></canvas>
+    </div>
 </div>
-
+ 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
 <script>
-
 function createProgram(gl, vsSource, fsSource) {
     const vs = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vs, vsSource);
     gl.compileShader(vs);
-    
+   
     const fs = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fs, fsSource);
     gl.compileShader(fs);
-    
+   
     const prog = gl.createProgram();
     gl.attachShader(prog, vs);
     gl.attachShader(prog, fs);
     gl.linkProgram(prog);
-    gl.useProgram(prog);
     return prog;
 }
-
-(() => {
-    const gl = document.getElementById('c1').getContext('webgl2');
-    if (!gl) return;
-    
-    const prog = createProgram(gl, 
-        `#version 300 es
-        in vec2 p; in vec4 c; out vec4 vc; uniform mat4 m;
-        void main(){ gl_Position = m * vec4(p,0,1); vc = c; }`,
-        `#version 300 es
-        precision mediump float; in vec4 vc; out vec4 fc;
-        void main(){ fc = vc; }`
-    );
-    
-    const verts = [];
-    const cols = [];
-    
-
-    verts.push(0, 0);
-    cols.push(1, 0, 0, 1);
-    
-
-    for(let i = 0; i <= 5; i++) {
-        let angle = (i * 72 - 90) * Math.PI / 180;
-        verts.push(Math.cos(angle) * 0.78, Math.sin(angle) * 0.78);
-        cols.push(1, 0, 0, 1);
-    }
-    
-    // Буфер позиций
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    const pLoc = gl.getAttribLocation(prog, 'p');
-    gl.enableVertexAttribArray(pLoc);
-    gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
-    
-    // Буфер цветов
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cols), gl.STATIC_DRAW);
-    const cLoc = gl.getAttribLocation(prog, 'c');
-    gl.enableVertexAttribArray(cLoc);
-    gl.vertexAttribPointer(cLoc, 4, gl.FLOAT, false, 0, 0);
-    
-    // Матрица трансформации
-    const m = mat4.create();
-    mat4.rotateZ(m, m, 0.15);
-    gl.uniformMatrix4fv(gl.getUniformLocation(prog, 'm'), false, m);
-    
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, 7);  
-})();
-
-
-(() => {
-    const gl = document.getElementById('c2').getContext('webgl2');
-    if (!gl) return;
-    
-    const prog = createProgram(gl, 
-        `#version 300 es
-        in vec2 p; in vec4 c; out vec4 vc; uniform mat4 m;
-        void main(){ gl_Position = m * vec4(p,0,1); vc = c; }`,
-        `#version 300 es
-        precision mediump float; in vec4 vc; out vec4 fc;
-        void main(){ fc = vc; }`
-    );
-    
-    const s = 0.45, ox = 0.2, oy = 0.2;
-    const verts = [
-        // Передняя грань
-        -s, -s,  s, -s,  s,  s,  -s,  s,
-        // Верхняя грань
-        -s+ox, s+oy,  s+ox, s+oy,  s, s,  -s, s,
-        // Правая грань
-        s, -s,  s+ox, -s+oy,  s+ox, s+oy,  s, s
-    ];
-    
+ 
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl2');
+ 
+ 
+    gl.enable(gl.SCISSOR_TEST);
    
-    const cols = [];
-    for(let i = 0; i < 12; i++) {
-        cols.push(1.0, 0.9, 0.1, 1.0);
-    }
-    
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    const pLoc = gl.getAttribLocation(prog, 'p');
-    gl.enableVertexAttribArray(pLoc);
-    gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
-    
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cols), gl.STATIC_DRAW);
-    const cLoc = gl.getAttribLocation(prog, 'c');
-    gl.enableVertexAttribArray(cLoc);
-    gl.vertexAttribPointer(cLoc, 4, gl.FLOAT, false, 0, 0);
-    
-    const m = mat4.create();
-    mat4.rotateZ(m, m, 0.6);
-    gl.uniformMatrix4fv(gl.getUniformLocation(prog, 'm'), false, m);
-    
+ 
+    gl.viewport(0, 0, 400, 400);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-    gl.drawArrays(gl.TRIANGLE_FAN, 4, 4);
-    gl.drawArrays(gl.TRIANGLE_FAN, 8, 4);
-})();
-
-
-(() => {
-    const gl = document.getElementById('c3').getContext('webgl2');
-    if (!gl) return;
-    
-    const prog = createProgram(gl, 
-        `#version 300 es
-        in vec2 p;
-        out vec2 vPos;
-        void main(){ 
-            gl_Position = vec4(p, 0, 1); 
-            vPos = p; 
-        }`,
-        `#version 300 es
-        precision mediump float;
-        in vec2 vPos;
-        out vec4 color;
-        
-        void main() {
-            float k = 6.0;
-            if (mod(floor(vPos.x * k), 2.0) < 0.5)
-                color = vec4(0.0, 0.8, 1.0, 1.0);
-            else
-                color = vec4(1.0, 1.0, 1.0, 1.0);
-        }`
-    );
-    
-    const verts = [
-        -0.8, -0.8,  0.8, -0.8,  0.8, 0.8,
-        -0.8, -0.8,  0.8, 0.8,  -0.8, 0.8
-    ];
-    
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    const pLoc = gl.getAttribLocation(prog, 'p');
-    gl.enableVertexAttribArray(pLoc);
-    gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
-    
-    gl.clearColor(0, 0, 0, 1);
+   
+    (() => {
+        const prog = createProgram(gl,
+            `#version 300 es
+            in vec2 p; in vec4 c; out vec4 vc; uniform mat4 m;
+            void main(){ gl_Position = m * vec4(p,0,1); vc = c; }`,
+            `#version 300 es
+            precision mediump float; in vec4 vc; out vec4 fc;
+            void main(){ fc = vc; }`
+        );
+        gl.useProgram(prog);
+       
+        const verts = [0, 0];
+        const cols = [1, 0, 0, 1];
+       
+        for(let i = 0; i <= 5; i++) {
+            const angle = (i * 72 - 90) * Math.PI / 180;
+            verts.push(Math.cos(angle) * 0.78, Math.sin(angle) * 0.78);
+            cols.push(1, 0, 0, 1);
+        }
+       
+        const posBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+        const pLoc = gl.getAttribLocation(prog, 'p');
+        gl.enableVertexAttribArray(pLoc);
+        gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
+       
+        const colBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cols), gl.STATIC_DRAW);
+        const cLoc = gl.getAttribLocation(prog, 'c');
+        gl.enableVertexAttribArray(cLoc);
+        gl.vertexAttribPointer(cLoc, 4, gl.FLOAT, false, 0, 0);
+       
+        const m = mat4.create();
+        mat4.rotateZ(m, m, 0.15);
+        gl.uniformMatrix4fv(gl.getUniformLocation(prog, 'm'), false, m);
+       
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 7);
+    })();
+   
+   
+    gl.viewport(400, 0, 400, 400);
+    gl.scissor(400, 0, 400, 400);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-})();
+   
+    (() => {
+        const prog = createProgram(gl,
+            `#version 300 es
+            in vec2 p; in vec4 c; out vec4 vc; uniform mat4 m;
+            void main(){ gl_Position = m * vec4(p,0,1); vc = c; }`,
+            `#version 300 es
+            precision mediump float; in vec4 vc; out vec4 fc;
+            void main(){ fc = vc; }`
+        );
+        gl.useProgram(prog);
+       
+        const s = 0.45, ox = 0.2, oy = 0.2;
+        const verts = [
+            // Передняя грань (квадрат)
+            -s, -s,  s, -s,  s,  s,  -s,  s,
+            // Верхняя грань (параллелограмм)
+            -s+ox, s+oy,  s+ox, s+oy,  s, s,  -s, s,
+            // Правая грань (параллелограмм)
+            s, -s,  s+ox, -s+oy,  s+ox, s+oy,  s, s
+        ];
+       
+        const cols = [];
+        for(let i = 0; i < 12; i++) cols.push(1.0, 0.9, 0.1, 1.0);
+       
+        const posBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+        const pLoc = gl.getAttribLocation(prog, 'p');
+        gl.enableVertexAttribArray(pLoc);
+        gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
+       
+        const colBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cols), gl.STATIC_DRAW);
+        const cLoc = gl.getAttribLocation(prog, 'c');
+        gl.enableVertexAttribArray(cLoc);
+        gl.vertexAttribPointer(cLoc, 4, gl.FLOAT, false, 0, 0);
+       
+        const m = mat4.create();
+        mat4.rotateZ(m, m, 0.6);
+        gl.uniformMatrix4fv(gl.getUniformLocation(prog, 'm'), false, m);
+       
+   
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);  
+        gl.drawArrays(gl.TRIANGLE_FAN, 4, 4);  
+        gl.drawArrays(gl.TRIANGLE_FAN, 8, 4);  
+    })();
+   
+ 
+    gl.viewport(800, 0, 400, 400);
+    gl.scissor(800, 0, 400, 400);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+   
+    (() => {
+        const prog = createProgram(gl,
+            `#version 300 es
+            in vec2 p; out vec2 vPos;
+            void main(){ gl_Position = vec4(p, 0, 1); vPos = p; }`,
+            `#version 300 es
+            precision mediump float;
+            in vec2 vPos; out vec4 color;
+            void main() {
+                float k = 6.0;
+                if (mod(floor(vPos.x * k), 2.0) < 0.5)
+                    color = vec4(0.0, 0.8, 1.0, 1.0);
+                else
+                    color = vec4(1.0, 1.0, 1.0, 1.0);
+            }`
+        );
+        gl.useProgram(prog);
+       
+        const verts = [
+            -0.8, -0.8,  0.8, -0.8,  0.8, 0.8,
+            -0.8, -0.8,  0.8, 0.8,  -0.8, 0.8
+        ];
+       
+        const posBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+        const pLoc = gl.getAttribLocation(prog, 'p');
+        gl.enableVertexAttribArray(pLoc);
+        gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
+       
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    })();
+   
+   
+ 
 </script>
 </body>
 </html>
